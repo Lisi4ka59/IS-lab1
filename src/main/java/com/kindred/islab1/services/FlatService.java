@@ -80,4 +80,8 @@ public class FlatService {
                 .max(Comparator.comparingDouble(Flat::getPrice))
                 .orElseThrow(() -> new ResourceNotFoundException("No flats without a balcony found"));
     }
+
+    public List<Flat> getAllFlats() {
+        return flatRepository.findAll();
+    }
 }

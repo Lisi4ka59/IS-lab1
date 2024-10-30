@@ -104,4 +104,15 @@ public class FlatController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
+
+    @GetMapping("/flat-list")
+    public ResponseEntity<List<Flat>> getFlatList() {
+        try {
+            List<Flat> flats = flatService.getAllFlats();
+            System.out.println("of");
+            return new ResponseEntity<>(flats, HttpStatus.OK);
+        } catch (ResourceNotFoundException e) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
 }

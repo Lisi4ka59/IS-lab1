@@ -31,7 +31,7 @@ public class SecurityConfig{
                 .authorizeHttpRequests(authorizeRequests ->
                         authorizeRequests
                                 .requestMatchers("/api/register", "/api/login/username", "/api/login/email", "/api/activate", "/api/send-activation").permitAll() // Allow these URLs
-                                .anyRequest().authenticated() // All other requests need to be authenticated
+                                .anyRequest().authenticated()// All other requests need to be authenticated
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // No session management

@@ -36,6 +36,7 @@ public class AuthController {
     @PersistenceContext
     private EntityManager entityManager;
 
+
     @GetMapping("/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public String adminEndpoint() {
@@ -55,29 +56,33 @@ public class AuthController {
     }
 
     @PostMapping("/login/username")
-    public ResponseEntity<Map<String, String>> loginByUsername(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<Map<String, Object>> loginByUsername(@RequestBody LoginRequest loginRequest) {
         User user = userService.validateUsername(loginRequest);
         System.out.println(loginRequest);
         if (user == null) {
-            Map<String, String> errorResponse = new HashMap<>();
+            Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Bad login or password");
             return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
         }
-        Map<String, String> successResponse = new HashMap<>();
+        Map<String, Object> successResponse = new HashMap<>();
         successResponse.put("token", jwtTokenProvider.generateToken(user.getUsername()));
+        user.setPassword("");
+        successResponse.put("user", user);
         return new ResponseEntity<>(successResponse, HttpStatus.OK);
     }
 
     @PostMapping("/login/email")
-    public ResponseEntity<Map<String, String>> loginByEmail(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<Map<String, Object>> loginByEmail(@RequestBody LoginRequest loginRequest) {
         User user = userService.validateEmail(loginRequest);
         if (user == null) {
-            Map<String, String> errorResponse = new HashMap<>();
+            Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Bad email or password");
             return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
         }
-        Map<String, String> successResponse = new HashMap<>();
+        Map<String, Object> successResponse = new HashMap<>();
         successResponse.put("token", jwtTokenProvider.generateToken(user.getUsername()));
+        user.setPassword("");
+        successResponse.put("user", user);
         return new ResponseEntity<>(successResponse, HttpStatus.OK);
     }
 
@@ -150,7 +155,7 @@ public class AuthController {
     }
 
     @GetMapping("/add-administrator-role")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> addAdministratorRole(@RequestParam("user") String userName) {
         User user = userService.findUserWithRolesByUsername(userName);
         Map<String, String> response = new HashMap<>();
@@ -172,7 +177,7 @@ public class AuthController {
     }
 
     @GetMapping("/remove-administrator-role")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> removeAdministratorRole(@RequestParam("user") String userName) {
         User user = userService.findUserWithRolesByUsername(userName);
         Map<String, String> response = new HashMap<>();
@@ -190,13 +195,17 @@ public class AuthController {
     }
 
     @GetMapping("/delete-user")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> deleteUser(@RequestParam("user") String userName) {
         User user = userService.findUserWithRolesByUsername(userName);
         Map<String, String> response = new HashMap<>();
         if (user == null) {
             response.put("error", "User not found");
             return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        }
+        if (user.getRoles().contains(roleRepository.findByName("ADMIN"))) {
+            response.put("error", "U can not delete administrator");
+            return new ResponseEntity<>(response, HttpStatus.CONFLICT);
         }
         entityManager.clear();
         userRepository.removeRolesByUserId(user.getId());
@@ -205,5 +214,7 @@ public class AuthController {
         response.put("message", String.format("User %s deleted", userName));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+
 
 }
