@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.SecretKey;
 import java.security.Key;
 import java.util.Date;
 
@@ -21,9 +22,9 @@ public class JwtTokenProvider {
     @Value("${security.jwt.token.expire-length:3600000}")
     private long validityInMilliseconds;
 
-    private static Key key;
+    private static SecretKey key;
 
-    private static Key activationKey;
+    private static SecretKey activationKey;
 
 
     @PostConstruct
@@ -40,26 +41,18 @@ public class JwtTokenProvider {
                 .claim("sub", username)
                 .claim("iat", new Date())  // Issued at
                 .claim("exp", new Date(System.currentTimeMillis() + validityInMilliseconds))  // Expiration
-                .signWith(key)  // Sign with the SecretKey
+                .signWith(key)// Sign with the SecretKey
                 .compact();
     }
 
     public String getUsernameFromJWT(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
     }
 
     public boolean validateToken(String token) {
 
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(key)
-                    .build()
-                    .parseClaimsJws(token);
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             return false;
@@ -76,12 +69,8 @@ public class JwtTokenProvider {
     }
 
     public boolean validateActivationToken(String token) {
-
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(activationKey)
-                    .build()
-                    .parseClaimsJws(token);
+            Jwts.parser().verifyWith(activationKey).build().parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             return false;
@@ -89,11 +78,6 @@ public class JwtTokenProvider {
     }
 
     public String getEmailFromActivationToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(activationKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+        return Jwts.parser().verifyWith(activationKey).build().parseSignedClaims(token).getPayload().getSubject();
     }
 }
