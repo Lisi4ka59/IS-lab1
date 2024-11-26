@@ -4,10 +4,11 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
-import java.security.Key;
 import java.util.Date;
 
 import static com.kindred.islab1.Constants.ACTIVATION_KEY;
@@ -68,12 +69,11 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public boolean validateActivationToken(String token) {
+    public void validateActivationToken(String token) {
         try {
             Jwts.parser().verifyWith(activationKey).build().parseSignedClaims(token);
-            return true;
         } catch (Exception e) {
-            return false;
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token");
         }
     }
 
