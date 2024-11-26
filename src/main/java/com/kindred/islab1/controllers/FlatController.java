@@ -1,4 +1,4 @@
-package com.kindred.islab1;
+package com.kindred.islab1.controllers;
 
 import com.kindred.islab1.entities.Flat;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;

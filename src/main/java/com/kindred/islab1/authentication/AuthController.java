@@ -5,6 +5,7 @@ package com.kindred.islab1.authentication;
 import com.kindred.islab1.authentication.dto.LoginRequest;
 import com.kindred.islab1.authentication.service.AuthService;
 import com.kindred.islab1.entities.User;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -50,12 +51,12 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody User userRegistrationInfo) {
+    public ResponseEntity<Map<String, String>> register(@Valid @RequestBody User userRegistrationInfo) throws MessagingException {
         return authService.register(userRegistrationInfo);
     }
 
     @GetMapping("/send-activation")
-    public ResponseEntity<Map<String, String>> sendActivation(@RequestParam("email") String email) {
+    public ResponseEntity<Map<String, String>> sendActivation(@RequestParam("email") String email) throws MessagingException {
         return authService.sendActivation(email);
     }
 

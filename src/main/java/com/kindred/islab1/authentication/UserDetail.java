@@ -21,10 +21,7 @@ public class UserDetail implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        com.kindred.islab1.entities.User user = userRepository.findByUsername(username);
-        if (user == null) {
-            throw new UsernameNotFoundException(username);
-        }
+        com.kindred.islab1.entities.User user = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException(username));
         Set<GrantedAuthority> grantedAuthorities = user.getRole().stream()
                 .map(role -> new SimpleGrantedAuthority(String.format("ROLE_%s", role.getName())))
                 .collect(Collectors.toSet());
