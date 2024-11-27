@@ -8,6 +8,7 @@ import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
 import com.kindred.islab1.repositories.HouseRepository;
+import com.kindred.islab1.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,9 +33,13 @@ public class FlatService {
     @Autowired
     CoordinatesRepository coordinatesRepository;
 
+    @Autowired
+    UserRepository userRepository;
 
 
-    public House createHouse(House house) {
+
+    public House createHouse(House house, String username) {
+        house.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
         return houseRepository.save(house);
     }
 
@@ -42,7 +47,8 @@ public class FlatService {
         return houseRepository.findAllByOrderByNameAsc();
     }
 
-    public Coordinates createCoordinates(Coordinates coordinates) {
+    public Coordinates createCoordinates(Coordinates coordinates, String username) {
+        coordinates.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
         return coordinatesRepository.save(coordinates);
     }
 
@@ -50,13 +56,14 @@ public class FlatService {
         return coordinatesRepository.findAllByOrderByIdAsc();
     }
 
-    public Flat createFlat(Flat flat) {
+    public Flat createFlat(Flat flat, String username) {
         if (flat.getCoordinates().getId() != null) {
             flat.setCoordinates(coordinatesRepository.findById(flat.getCoordinates().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this coordinates")));
         }
         if (flat.getHouse().getId() != null) {
             flat.setHouse(houseRepository.findById(flat.getHouse().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this house")));
         }
+        flat.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
 
         return flatRepository.save(flat);
     }

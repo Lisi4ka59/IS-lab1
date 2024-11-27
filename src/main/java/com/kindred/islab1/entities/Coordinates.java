@@ -6,6 +6,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
@@ -20,4 +21,8 @@ public class Coordinates {
 
     @Min(-28)
     private double y;
+
+    @NotNull
+    private long ownerId;
+
 }

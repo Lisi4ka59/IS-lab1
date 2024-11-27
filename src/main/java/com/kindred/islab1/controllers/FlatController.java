@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -27,24 +29,24 @@ public class FlatController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createFlat(@Valid @RequestBody Flat flat) {
-        System.out.println(flat);
+    public ResponseEntity<Map<String, Object>> createFlat(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody Flat flat) {
         Map<String, Object> response = new HashMap<>();
-        response.put("flat", flatService.createFlat(flat));
+
+        response.put("flat", flatService.createFlat(flat, userDetails.getUsername()));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PostMapping("/house")
-    public ResponseEntity<Map<String, Object>> createHouse(@Valid @RequestBody House house) {
+    public ResponseEntity<Map<String, Object>> createHouse(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody House house) {
         Map<String, Object> response = new HashMap<>();
-        response.put("house", flatService.createHouse(house));
+        response.put("house", flatService.createHouse(house, userDetails.getUsername()));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PostMapping("/coordinates")
-    public ResponseEntity<Map<String, Object>> createCoordinates(@Valid @RequestBody Coordinates coordinates) {
+    public ResponseEntity<Map<String, Object>> createCoordinates(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody Coordinates coordinates) {
         Map<String, Object> response = new HashMap<>();
-        response.put("coordinates", flatService.createCoordinates(coordinates));
+        response.put("coordinates", flatService.createCoordinates(coordinates, userDetails.getUsername()));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 

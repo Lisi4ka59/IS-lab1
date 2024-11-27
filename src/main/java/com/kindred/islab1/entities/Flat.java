@@ -58,5 +58,8 @@ public class Flat {
         this.creationDate = LocalDateTime.now();
     }
 
+    @NotNull
+    private long ownerId;
+
 }
 
