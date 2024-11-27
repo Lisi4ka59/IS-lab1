@@ -21,5 +21,4 @@ public class House {
 
     @Positive
     private int numberOfFlatsOnFloor;
-
 }

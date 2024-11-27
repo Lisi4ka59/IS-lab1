@@ -1,11 +1,17 @@
 package com.kindred.islab1.services;
 
 
+import com.kindred.islab1.entities.Coordinates;
 import com.kindred.islab1.entities.Flat;
+import com.kindred.islab1.entities.House;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
+import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
+import com.kindred.islab1.repositories.HouseRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
 import java.util.List;
@@ -20,7 +26,38 @@ public class FlatService {
         this.flatRepository = flatRepository;
     }
 
+    @Autowired
+    HouseRepository houseRepository;
+
+    @Autowired
+    CoordinatesRepository coordinatesRepository;
+
+
+
+    public House createHouse(House house) {
+        return houseRepository.save(house);
+    }
+
+    public List<House> getHouses() {
+        return houseRepository.findAllByOrderByNameAsc();
+    }
+
+    public Coordinates createCoordinates(Coordinates coordinates) {
+        return coordinatesRepository.save(coordinates);
+    }
+
+    public List<Coordinates> getCoordinates() {
+        return coordinatesRepository.findAllByOrderByIdAsc();
+    }
+
     public Flat createFlat(Flat flat) {
+        if (flat.getCoordinates().getId() != null) {
+            flat.setCoordinates(coordinatesRepository.findById(flat.getCoordinates().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this coordinates")));
+        }
+        if (flat.getHouse().getId() != null) {
+            flat.setHouse(houseRepository.findById(flat.getHouse().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this house")));
+        }
+
         return flatRepository.save(flat);
     }
 

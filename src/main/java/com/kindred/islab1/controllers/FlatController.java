@@ -1,7 +1,10 @@
 package com.kindred.islab1.controllers;
 
+import com.kindred.islab1.entities.Coordinates;
 import com.kindred.islab1.entities.Flat;
+import com.kindred.islab1.entities.House;
 import com.kindred.islab1.services.FlatService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +27,38 @@ public class FlatController {
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createFlat(@RequestBody Flat flat) {
+    public ResponseEntity<Map<String, Object>> createFlat(@Valid @RequestBody Flat flat) {
+        System.out.println(flat);
         Map<String, Object> response = new HashMap<>();
         response.put("flat", flatService.createFlat(flat));
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/house")
+    public ResponseEntity<Map<String, Object>> createHouse(@Valid @RequestBody House house) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("house", flatService.createHouse(house));
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/coordinates")
+    public ResponseEntity<Map<String, Object>> createCoordinates(@Valid @RequestBody Coordinates coordinates) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("coordinates", flatService.createCoordinates(coordinates));
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/houses")
+    public ResponseEntity<Map<String, Object>> getHouse() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("houses", flatService.getHouses());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/coordinates")
+    public ResponseEntity<Map<String, Object>> getCoordinates() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("coordinates", flatService.getCoordinates());
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
