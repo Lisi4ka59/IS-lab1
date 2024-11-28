@@ -11,6 +11,7 @@ import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
 import com.kindred.islab1.repositories.HouseRepository;
 import com.kindred.islab1.repositories.UserRepository;
+import jakarta.persistence.Transient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -103,10 +104,18 @@ public class FlatService {
         return flatRepository.save(flat);
     }
 
+    @Transient
     public void deleteFlat(Long id, String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User does not exist"));
-        if (flatRepository.findById(id).orElseThrow().getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
+        Flat flat = getFlat(id);
+        if (flat.getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
             flatRepository.deleteById(id);
+            if (!flatRepository.existsByCoordinatesId(flat.getCoordinates().getId())) {
+                coordinatesRepository.deleteById(flat.getCoordinates().getId());
+            }
+            if (!flatRepository.existsByHouseId(flat.getHouse().getId())) {
+                houseRepository.deleteById(flat.getHouse().getId());
+            }
         } else {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "U do not own this flat");
         }

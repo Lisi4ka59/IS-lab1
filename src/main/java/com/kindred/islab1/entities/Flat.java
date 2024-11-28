@@ -18,7 +18,7 @@ public class Flat {
     private String name;
 
     @NotNull
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.DETACH})
     private Coordinates coordinates;
 
     @NotNull
@@ -50,7 +50,7 @@ public class Flat {
     private View view;
 
     @NotNull
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.DETACH})
     private House house;
 
     @PrePersist
