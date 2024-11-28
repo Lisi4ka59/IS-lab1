@@ -71,17 +71,17 @@ public class FlatController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateFlat(@PathVariable Long id, @RequestBody Flat flatDetails) {
+    @PutMapping
+    public ResponseEntity<Map<String, Object>> updateFlat(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody Flat flatDetails) {
         Map<String, Object> response = new HashMap<>();
-        response.put("flat", flatService.updateFlat(id, flatDetails));
+        response.put("updatedFlat", flatService.updateFlat(flatDetails, userDetails.getUsername()));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteFlat(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteFlat(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
-        flatService.deleteFlat(id);
+        flatService.deleteFlat(id, userDetails.getUsername());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

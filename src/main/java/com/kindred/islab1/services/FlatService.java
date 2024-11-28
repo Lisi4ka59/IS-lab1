@@ -1,9 +1,11 @@
 package com.kindred.islab1.services;
 
 
+import com.kindred.islab1.authentication.Roles;
 import com.kindred.islab1.entities.Coordinates;
 import com.kindred.islab1.entities.Flat;
 import com.kindred.islab1.entities.House;
+import com.kindred.islab1.entities.User;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
@@ -35,6 +37,9 @@ public class FlatService {
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    RoleService roleService;
 
 
 
@@ -72,24 +77,39 @@ public class FlatService {
         return flatRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Flat not found with id: " + id));
     }
 
-    public Flat updateFlat(Long id, Flat flatDetails) {
-        Flat flat = getFlat(id);
-        flat.setName(flatDetails.getName());
-        flat.setCoordinates(flatDetails.getCoordinates());
-        flat.setArea(flatDetails.getArea());
-        flat.setPrice(flatDetails.getPrice());
-        flat.setBalcony(flatDetails.isBalcony());
-        flat.setTimeToMetroOnFoot(flatDetails.getTimeToMetroOnFoot());
-        flat.setNumberOfRooms(flatDetails.getNumberOfRooms());
-        flat.setIsNew(flatDetails.getIsNew());
-        flat.setFurnish(flatDetails.getFurnish());
-        flat.setView(flatDetails.getView());
-        flat.setHouse(flatDetails.getHouse());
+    public Flat updateFlat(Flat flatDetails, String username) {
+        Flat flat = getFlat(flatDetails.getId());
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User does not exist"));
+        if (flat.getHouse().getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
+            flat.getHouse().setName(flatDetails.getHouse().getName());
+            flat.getHouse().setNumberOfFlatsOnFloor(flatDetails.getHouse().getNumberOfFlatsOnFloor());
+            flat.getHouse().setYear(flatDetails.getHouse().getYear());
+        }
+        if (flat.getCoordinates().getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
+            flat.getCoordinates().setX(flatDetails.getCoordinates().getX());
+            flat.getCoordinates().setY(flatDetails.getCoordinates().getY());
+        }
+        if (flat.getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
+            flat.setName(flatDetails.getName());
+            flat.setArea(flatDetails.getArea());
+            flat.setPrice(flatDetails.getPrice());
+            flat.setBalcony(flatDetails.isBalcony());
+            flat.setTimeToMetroOnFoot(flatDetails.getTimeToMetroOnFoot());
+            flat.setNumberOfRooms(flatDetails.getNumberOfRooms());
+            flat.setIsNew(flatDetails.getIsNew());
+            flat.setFurnish(flatDetails.getFurnish());
+            flat.setView(flatDetails.getView());
+        }
         return flatRepository.save(flat);
     }
 
-    public void deleteFlat(Long id) {
-        flatRepository.deleteById(id);
+    public void deleteFlat(Long id, String username) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User does not exist"));
+        if (flatRepository.findById(id).orElseThrow().getOwnerId() == user.getId() || user.getRole().contains(roleService.ensureRoleExists(Roles.ADMIN))) {
+            flatRepository.deleteById(id);
+        } else {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "U do not own this flat");
+        }
     }
 
     public float averageNumberOfRooms() {
