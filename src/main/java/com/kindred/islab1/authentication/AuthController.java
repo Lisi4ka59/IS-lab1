@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -55,6 +57,11 @@ public class AuthController {
         return authService.register(userRegistrationInfo);
     }
 
+    @PutMapping("/profile/set-pswd")
+    public ResponseEntity<Map<String, Object>> changePassword(@RequestBody String newPassword, @AuthenticationPrincipal UserDetails userDetails) {
+        return authService.changePassword(newPassword, userDetails.getUsername());
+    }
+
     @GetMapping("/send-activation")
     public ResponseEntity<Map<String, String>> sendActivation(@RequestParam("email") String email) throws MessagingException {
         return authService.sendActivation(email);
@@ -65,14 +72,20 @@ public class AuthController {
         return authService.activateAccount(token);
     }
 
-    @GetMapping("/add-administrator-role")
+    @PutMapping("/users/admin-requests/{requestId}/accept")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> addAdministratorRole(@RequestParam("user") String username) {
-        return authService.addAdministratorRole(username);
+    public ResponseEntity<Map<String, String>> addAdministratorRole(@PathVariable long requestId) {
+        return authService.addAdministratorRole(requestId);
+    }
+
+    @PutMapping("/users/admin-requests/{requestId}/deny")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> denyAdministratorRole(@PathVariable long requestId, @RequestBody String denyReason) {
+        return authService.denyAdministratorRole(requestId, denyReason);
     }
 
     @GetMapping("/remove-administrator-role")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Map<String, String>> removeAdministratorRole(@RequestParam("user") String username) {
         return authService.removeAdministratorRole(username);
     }

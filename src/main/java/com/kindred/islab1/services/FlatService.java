@@ -11,7 +11,7 @@ import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
 import com.kindred.islab1.repositories.HouseRepository;
 import com.kindred.islab1.repositories.UserRepository;
-import jakarta.persistence.Transient;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -104,7 +104,7 @@ public class FlatService {
         return flatRepository.save(flat);
     }
 
-    @Transient
+    @Transactional
     public void deleteFlat(Long id, String username) {
         User user = userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User does not exist"));
         Flat flat = getFlat(id);
