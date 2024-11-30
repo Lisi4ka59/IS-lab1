@@ -8,8 +8,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
+
 @Data
 @Entity
+
 public class House {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

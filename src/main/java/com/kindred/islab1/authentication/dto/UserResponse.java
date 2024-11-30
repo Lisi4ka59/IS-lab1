@@ -11,9 +11,6 @@ public class UserResponse {
     private String username;
     private String name;
     private String surname;
-    private String vehicleType;
-    private String expeditionRole;
-    private String skill;
     private String aboutUser;
     private Set<Role> role;
 }

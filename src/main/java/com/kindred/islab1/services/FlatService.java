@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class FlatService {
@@ -41,8 +43,6 @@ public class FlatService {
 
     @Autowired
     RoleService roleService;
-
-
 
     public House createHouse(House house, String username) {
         house.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
@@ -123,18 +123,21 @@ public class FlatService {
 
     public float averageNumberOfRooms() {
         return (float) flatRepository.findAll().stream()
-                .mapToLong(Flat::getNumberOfRooms)
+                .map(Flat::getNumberOfRooms)
+                .filter(Objects::nonNull)
+                .mapToLong(Long::longValue)
                 .average()
                 .orElse(0.0);
     }
 
     public Flat getFlatWithMaxArea() {
         return flatRepository.findAll().stream()
-                .max(Comparator.comparingDouble(Flat::getArea))
+                .filter(Objects::nonNull)
+                .max(Comparator.comparingDouble(flat -> Optional.of(flat.getArea()).orElse(0.0)))
                 .orElseThrow(() -> new ResourceNotFoundException("No flats available"));
     }
 
-    public long countFlatsWithIsNewLessThan(boolean isNewValue) {
+    public long countFlatsWithIsNew(boolean isNewValue) {
         return flatRepository.findAll().stream()
                 .filter(flat -> flat.getIsNew() == isNewValue)
                 .count();
@@ -143,14 +146,14 @@ public class FlatService {
     public Flat getMostExpensiveFlat(List<Long> ids) {
         return ids.stream()
                 .map(this::getFlat)
-                .max(Comparator.comparingDouble(Flat::getPrice))
+                .max(Comparator.comparingDouble(flat -> Optional.of(flat.getPrice()).orElse(0.0)))
                 .orElseThrow(() -> new ResourceNotFoundException("No flats found with the given IDs"));
     }
 
     public Flat getMostExpensiveFlatWithoutBalcony() {
         return flatRepository.findAll().stream()
-                .filter(flat -> !flat.isBalcony())
-                .max(Comparator.comparingDouble(Flat::getPrice))
+                .filter(flat -> flat != null && Boolean.FALSE.equals(flat.isBalcony()))
+                .max(Comparator.comparingDouble(flat -> Optional.of(flat.getPrice()).orElse(0.0)))
                 .orElseThrow(() -> new ResourceNotFoundException("No flats without a balcony found"));
     }
 

@@ -34,10 +34,10 @@ public class AdvancedFlatController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @GetMapping("/count-is-new-less-than/{value}")
+    @GetMapping("/count-is-new/{value}")
     public ResponseEntity<Map<String, Object>> countFlatsWithIsNewLessThan(@PathVariable boolean value) {
         Map<String, Object> response = new HashMap<>();
-        response.put("count", flatService.countFlatsWithIsNewLessThan(value));
+        response.put("count", flatService.countFlatsWithIsNew(value));
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
