@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
@@ -103,7 +104,12 @@ public class UserController {
     @GetMapping("/admin-request")
     public ResponseEntity<Map<String, Object>> getAdminRequest(@AuthenticationPrincipal UserDetails userDetails) {
         Map<String, Object> response = new HashMap<>();
-        response.put("adminRequest", adminRequestRepository.findAdminRequestByUsernameAndStatus(userDetails.getUsername(), RequestStatus.SEND).orElse(adminRequestRepository.findAdminRequestByUsernameAndStatusOrderByIdDesc(userDetails.getUsername(), RequestStatus.DENIED).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin request does not exists"))));
+        Optional<AdminRequest> adminRequest = adminRequestRepository.findAdminRequestByUsernameAndStatus(userDetails.getUsername(), RequestStatus.SEND);
+        if (adminRequest.isPresent()) {
+            response.put("adminRequest", adminRequest);
+        } else {
+            response.put("adminRequest", adminRequestRepository.findAdminRequestByUsernameAndStatusOrderByIdDesc(userDetails.getUsername(), RequestStatus.DENIED).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin request does not exists")));
+        }
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
