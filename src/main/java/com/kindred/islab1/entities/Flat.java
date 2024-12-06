@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 @Data
 @Entity
-
 public class Flat {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

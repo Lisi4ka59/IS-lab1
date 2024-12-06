@@ -11,5 +11,6 @@ public interface UserMapper {
     UserMapper INSTANCE = Mappers.getMapper(UserMapper.class);
 
     LoginResponse toLoginResponse(User user);
+
     UserResponse toUserResponse(User user);
 }

@@ -2,25 +2,26 @@ package com.kindred.islab1.services;
 
 
 import com.kindred.islab1.authentication.Roles;
-import com.kindred.islab1.entities.Coordinates;
-import com.kindred.islab1.entities.Flat;
-import com.kindred.islab1.entities.House;
-import com.kindred.islab1.entities.User;
+import com.kindred.islab1.entities.*;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.CoordinatesRepository;
 import com.kindred.islab1.repositories.FlatRepository;
 import com.kindred.islab1.repositories.HouseRepository;
 import com.kindred.islab1.repositories.UserRepository;
 import jakarta.transaction.Transactional;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.io.IOException;
+import java.util.*;
 
 @Service
 public class FlatService {
@@ -44,6 +45,15 @@ public class FlatService {
     @Autowired
     RoleService roleService;
 
+
+    public boolean validateFlat(Flat flat) {
+        if (flatRepository.findByHouse_Id(flat.getHouse().getId()).isPresent()) {
+            Flat controlFlat = flatRepository.findByHouse_Id(flat.getHouse().getId()).orElseThrow();
+            return controlFlat.getCoordinates().getX() == flat.getCoordinates().getX() && controlFlat.getCoordinates().getY() == flat.getCoordinates().getY();
+        }
+        return true;
+    }
+
     public House createHouse(House house, String username) {
         house.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
         return houseRepository.save(house);
@@ -63,15 +73,13 @@ public class FlatService {
     }
 
     public Flat createFlat(Flat flat, String username) {
-        if (flat.getCoordinates().getId() != null) {
-            flat.setCoordinates(coordinatesRepository.findById(flat.getCoordinates().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this coordinates")));
-        }
-        if (flat.getHouse().getId() != null) {
-            flat.setHouse(houseRepository.findById(flat.getHouse().getId()).orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this house")));
-        }
+        flat.setCoordinates(coordinatesRepository.findById(flat.getCoordinates().getId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this coordinates")));
+        flat.setHouse(houseRepository.findById(flat.getHouse().getId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not find this house")));
         flat.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User does not exist")).getId());
-
-        return flatRepository.save(flat);
+        if (validateFlat(flat)) {
+            return flatRepository.save(flat);
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "This house build in the another coordinates");
     }
 
     public Flat getFlat(Long id) {
@@ -159,5 +167,216 @@ public class FlatService {
 
     public List<Flat> getAllFlats() {
         return flatRepository.findAll();
+    }
+
+
+    private List<String> getSheetNames(Workbook workbook) {
+        List<String> sheetNames = new ArrayList<>();
+        for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
+            sheetNames.add(workbook.getSheetName(i));
+        }
+        return sheetNames;
+    }
+
+
+    @Transactional
+    public Map<String, Object> importFlats(MultipartFile flatFile, String username) throws IOException {
+        // Получаем список всех листов
+        Map<String, Object> response = new HashMap<>();
+
+        Workbook workbook = new XSSFWorkbook(flatFile.getInputStream());
+        List<String> sheetNames = getSheetNames(workbook);
+
+        // Вызываем соответствующие методы, если лист существует
+        if (sheetNames.contains("Houses")) {
+            List<House> houses = saveAllHouse(parseHousesFromSheet(workbook.getSheet("Houses"), username));
+            response.put("houses", houses);
+            response.put("housesImported", houses.size());
+
+        }
+        if (sheetNames.contains("Coordinates")) {
+            List<Coordinates> coordinatesList = saveAllCoordinates(parseCoordinatesFromSheet(workbook.getSheet("Coordinates"), username));
+            response.put("coordinates", coordinatesList);
+            response.put("coordinatesImported", coordinatesList.size());
+        }
+        if (sheetNames.contains("Flats")) {
+            List<Flat> flats = saveAllFlats(parseFlatsFromSheet(workbook.getSheet("Flats"), username));
+            response.put("flats", flats);
+            response.put("flatsImported", flats.size());
+        }
+        return response;
+    }
+
+    @Transactional
+    public List<Flat> saveAllFlats(List<Flat> flats) {
+        List<Flat> savedFlats = new ArrayList<>();
+        if (flats == null || flats.isEmpty()) {
+            throw new IllegalArgumentException("Flat list is empty or null");
+        }
+        for (Flat flat : flats) {
+            if (!validateFlat(flat)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid flat");
+            }
+            savedFlats.add(flatRepository.save(flat));
+        }
+        return savedFlats;
+    }
+
+    @Transactional
+    public List<House> saveAllHouse(List<House> house) {
+        if (house == null || house.isEmpty()) {
+            throw new IllegalArgumentException("House list is empty or null");
+        }
+        return houseRepository.saveAll(house);
+    }
+
+    @Transactional
+    public List<Coordinates> saveAllCoordinates(List<Coordinates> coordinates) {
+        if (coordinates == null || coordinates.isEmpty()) {
+            throw new IllegalArgumentException("Coordinates list is empty or null");
+        }
+        return coordinatesRepository.saveAll(coordinates);
+    }
+
+    private List<Flat> parseFlatsFromSheet(Sheet sheet, String username) {
+        List<Flat> flats = new ArrayList<>();
+        Iterator<Row> rowIterator = sheet.iterator();
+
+        if (!rowIterator.hasNext()) {
+            throw new IllegalArgumentException("Flats sheet is empty");
+        }
+
+        Row headerRow = rowIterator.next();
+        Map<String, Integer> headerMap = getHeaderMap(headerRow);
+
+        while (rowIterator.hasNext()) {
+            Row row = rowIterator.next();
+            try {
+                flats.add(parseFlatFromRow(row, headerMap, username));
+            } catch (Exception e) {
+                System.err.println("Error parsing flat at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+            }
+        }
+        return flats;
+    }
+
+
+    private Map<String, Integer> getHeaderMap(Row headerRow) {
+        Map<String, Integer> headerMap = new HashMap<>();
+        for (Cell cell : headerRow) {
+            String header = cell.getStringCellValue().trim().toLowerCase();
+            headerMap.put(header, cell.getColumnIndex());
+        }
+        return headerMap;
+    }
+
+    private Flat parseFlatFromRow(Row row, Map<String, Integer> headerMap, String username) {
+        Flat flat = new Flat();
+        flat.setName(getStringValue(row, headerMap.get("name")));
+        flat.setArea(getDoubleValue(row, headerMap.get("area")));
+        flat.setPrice(getDoubleValue(row, headerMap.get("price")));
+        flat.setBalcony(getBooleanValue(row, headerMap.get("balcony")));
+        flat.setTimeToMetroOnFoot(getDoubleValue(row, headerMap.get("time_to_metro_on_foot")));
+        flat.setNumberOfRooms(getLongValue(row, headerMap.get("number_of_rooms")));
+        flat.setIsNew(getBooleanValue(row, headerMap.get("is_new")));
+        flat.setFurnish(Furnish.valueOf(getStringValue(row, headerMap.get("furnish")).toUpperCase()));
+        flat.setView(View.valueOf(getStringValue(row, headerMap.get("view")).toUpperCase()));
+
+        flat.setHouse(houseRepository.findById(getLongValue(row, headerMap.get("house_id"))).orElseThrow());
+
+        flat.setCoordinates(coordinatesRepository.findById(getLongValue(row, headerMap.get("coordinate_id"))).orElseThrow());
+
+        flat.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
+
+        if (flat.getName() == null || flat.getArea() <= 0 || flat.getPrice() <= 0) {
+            throw new IllegalArgumentException("Invalid flat data");
+        }
+        return flat;
+    }
+
+    private List<House> parseHousesFromSheet(Sheet sheet, String username) {
+        List<House> houses = new ArrayList<>();
+
+        Iterator<Row> rowIterator = sheet.iterator();
+        if (!rowIterator.hasNext()) {
+            throw new IllegalArgumentException("Sheet is empty");
+        }
+
+        // Получение заголовков
+        Row headerRow = rowIterator.next();
+        Map<String, Integer> headerMap = getHeaderMap(headerRow);
+
+        while (rowIterator.hasNext()) {
+            Row row = rowIterator.next();
+            try {
+                // Создаем объект House из строки
+                House house = new House();
+                house.setName(getStringValue(row, headerMap.get("name")));
+                house.setYear(getIntValue(row, headerMap.get("year")));
+                house.setNumberOfFlatsOnFloor(getIntValue(row, headerMap.get("number_of_flats_on_floor")));
+                house.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
+                houses.add(house);
+            } catch (IllegalArgumentException | NullPointerException e) {
+                // Логирование ошибок
+                System.err.println("Error parsing house at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+            }
+        }
+        return houses;
+    }
+
+    private List<Coordinates> parseCoordinatesFromSheet(Sheet sheet, String username) {
+        List<Coordinates> coordinatesList = new ArrayList<>();
+
+        Iterator<Row> rowIterator = sheet.iterator();
+        if (!rowIterator.hasNext()) {
+            throw new IllegalArgumentException("Sheet is empty");
+        }
+
+        // Получение заголовков
+        Row headerRow = rowIterator.next();
+        Map<String, Integer> headerMap = getHeaderMap(headerRow);
+
+        while (rowIterator.hasNext()) {
+            Row row = rowIterator.next();
+
+            try {
+                // Создаем объект Coordinates из строки
+                Coordinates coordinates = new Coordinates();
+                coordinates.setX(getFloatValue(row, headerMap.get("x")));
+                coordinates.setY(getDoubleValue(row, headerMap.get("y")));
+                coordinates.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
+                coordinatesList.add(coordinates);
+            } catch (IllegalArgumentException | NullPointerException e) {
+                // Логирование ошибок
+                System.err.println("Error parsing coordinates at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+            }
+        }
+
+        return coordinatesList;
+    }
+
+
+    private String getStringValue(Row row, Integer colIndex) {
+        return colIndex != null ? row.getCell(colIndex).getStringCellValue().trim() : null;
+    }
+
+    private double getDoubleValue(Row row, Integer colIndex) {
+        return colIndex != null ? row.getCell(colIndex).getNumericCellValue() : 0.0;
+    }
+
+    private boolean getBooleanValue(Row row, Integer colIndex) {
+        return colIndex != null && row.getCell(colIndex).getBooleanCellValue();
+    }
+
+    private long getLongValue(Row row, Integer colIndex) {
+        return colIndex != null ? (long) row.getCell(colIndex).getNumericCellValue() : 0;
+    }
+
+    private int getIntValue(Row row, Integer colIndex) {
+        return colIndex != null ? (int) row.getCell(colIndex).getNumericCellValue() : 0;
+    }
+
+    private float getFloatValue(Row row, Integer colIndex) {
+        return colIndex != null ? (float) row.getCell(colIndex).getNumericCellValue() : 0.0f;
     }
 }
