@@ -11,7 +11,6 @@ import lombok.Data;
 
 @Data
 @Entity
-
 public class House {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

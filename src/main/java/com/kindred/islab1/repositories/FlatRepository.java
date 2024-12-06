@@ -8,6 +8,6 @@ import java.util.Optional;
 public interface FlatRepository extends JpaRepository<Flat, Long> {
     boolean existsByCoordinatesId(Long id);
     boolean existsByHouseId(Long id);
-    Optional<Flat> findByHouse_Id(long id);
+    Optional<Flat> findFirstByHouse_Id(long id);
 
 }

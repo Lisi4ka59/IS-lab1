@@ -1,13 +1,11 @@
 package com.kindred.islab1.services;
 
 
+import com.kindred.islab1.authentication.ImportStatus;
 import com.kindred.islab1.authentication.Roles;
 import com.kindred.islab1.entities.*;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
-import com.kindred.islab1.repositories.CoordinatesRepository;
-import com.kindred.islab1.repositories.FlatRepository;
-import com.kindred.islab1.repositories.HouseRepository;
-import com.kindred.islab1.repositories.UserRepository;
+import com.kindred.islab1.repositories.*;
 import jakarta.transaction.Transactional;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -45,10 +43,20 @@ public class FlatService {
     @Autowired
     RoleService roleService;
 
+    @Autowired
+    ImportHistoryRepository importHistoryRepository;
+
+    public List<ImportHistory> getImportHistory(String username) {
+        return importHistoryRepository.findAllByOwnerIdOrderByCreationDateDesc(userRepository.findByUsername(username).orElseThrow().getId());
+    }
+
+    public List<ImportHistory> getAllImportHistory() {
+        return importHistoryRepository.findAllByOrderByCreationDateDesc();
+    }
 
     public boolean validateFlat(Flat flat) {
-        if (flatRepository.findByHouse_Id(flat.getHouse().getId()).isPresent()) {
-            Flat controlFlat = flatRepository.findByHouse_Id(flat.getHouse().getId()).orElseThrow();
+        if (flatRepository.findFirstByHouse_Id(flat.getHouse().getId()).isPresent()) {
+            Flat controlFlat = flatRepository.findFirstByHouse_Id(flat.getHouse().getId()).orElseThrow();
             return controlFlat.getCoordinates().getX() == flat.getCoordinates().getX() && controlFlat.getCoordinates().getY() == flat.getCoordinates().getY();
         }
         return true;
@@ -186,25 +194,40 @@ public class FlatService {
 
         Workbook workbook = new XSSFWorkbook(flatFile.getInputStream());
         List<String> sheetNames = getSheetNames(workbook);
+        ImportHistory importHistory = new ImportHistory();
 
         // Вызываем соответствующие методы, если лист существует
         if (sheetNames.contains("Houses")) {
             List<House> houses = saveAllHouse(parseHousesFromSheet(workbook.getSheet("Houses"), username));
             response.put("houses", houses);
             response.put("housesImported", houses.size());
+            importHistory.setCreatedHouses(houses.size());
 
         }
         if (sheetNames.contains("Coordinates")) {
             List<Coordinates> coordinatesList = saveAllCoordinates(parseCoordinatesFromSheet(workbook.getSheet("Coordinates"), username));
             response.put("coordinates", coordinatesList);
             response.put("coordinatesImported", coordinatesList.size());
+            importHistory.setCreatedCoordinates(coordinatesList.size());
         }
         if (sheetNames.contains("Flats")) {
             List<Flat> flats = saveAllFlats(parseFlatsFromSheet(workbook.getSheet("Flats"), username));
             response.put("flats", flats);
             response.put("flatsImported", flats.size());
+            importHistory.setCreatedFlats(flats.size());
         }
+        importHistory.setUsername(username);
+        importHistory.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")).getId());
+        importHistory.setStatus(ImportStatus.SUCCESS);
+        importHistoryRepository.save(importHistory);
         return response;
+    }
+
+    public void createFailedImportHistory(String username, ImportStatus status) {
+        ImportHistory importHistory = new ImportHistory();
+        importHistory.setUsername(username);
+        importHistory.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")).getId());
+        importHistory.setStatus(status);
     }
 
     @Transactional

@@ -7,6 +7,7 @@ import com.kindred.islab1.services.FlatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,20 @@ public class FlatController {
         this.flatService = flatService;
     }
 
+    @GetMapping("/import-history")
+    public ResponseEntity<Map<String, Object>> getImportHistory(@AuthenticationPrincipal UserDetails user) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("import_history_list", flatService.getImportHistory(user.getUsername()));
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/import-history-all")
+    public ResponseEntity<Map<String, Object>> getAllImportHistory() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("import_history_list", flatService.getAllImportHistory());
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
 
     @PostMapping
     public ResponseEntity<Map<String, Object>> createFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Flat flat) {
