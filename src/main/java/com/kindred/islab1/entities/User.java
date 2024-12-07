@@ -47,7 +47,7 @@ public class User {
     @Column(nullable = false)
     private String surname;
 
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Номер телефона должен содержать от 10 до 15 цифр и может начинаться с +")
+    @Pattern(regexp = "^\\+7\\(\\d{3}\\)\\d{3}-\\d{2}-\\d{2}$", message = "Номер телефона должен содержать от 10 до 15 цифр и может начинаться с +")
     @Column(name = "phone_number")
     private String phoneNumber;
 
