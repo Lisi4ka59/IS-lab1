@@ -60,7 +60,7 @@ public class UserController {
     }
 
     @PostMapping("/profile/update")
-    public ResponseEntity<Map<String, Object>> updateProfile(@Valid @RequestBody UpdateUserRequest updateUserRequest, @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody UpdateUserRequest updateUserRequest, @AuthenticationPrincipal UserDetails userDetails) {
         Map<String, Object> response = new HashMap<>();
         User user = userRepository.findByUsername(userDetails.getUsername()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User with username: " + userDetails.getUsername() + " not found"));
         user.setName(updateUserRequest.getName());

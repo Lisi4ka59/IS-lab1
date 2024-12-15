@@ -42,6 +42,7 @@ public class AuthService {
         User user = userService.validateUser(loginRequest);
         Map<String, Object> successResponse = new HashMap<>();
         successResponse.put("token", jwtTokenProvider.generateToken(user.getUsername()));
+        System.out.println(jwtTokenProvider.generateToken(user.getUsername()));
         successResponse.put("user", UserMapper.INSTANCE.toLoginResponse(user));
         return new ResponseEntity<>(successResponse, HttpStatus.OK);
     }

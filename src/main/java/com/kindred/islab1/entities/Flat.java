@@ -26,16 +26,16 @@ public class Flat {
     private LocalDateTime creationDate;
 
     @Positive
-    private double area;
+    private Double area;
 
     @Positive
     @Max(777301647)
-    private double price;
+    private Double price;
 
-    private boolean balcony;
+    private Boolean balcony;
 
     @Positive
-    private double timeToMetroOnFoot;
+    private Double timeToMetroOnFoot;
 
     @Positive
     private Long numberOfRooms;

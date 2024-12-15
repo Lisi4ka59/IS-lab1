@@ -1,8 +1,10 @@
 package com.kindred.islab1.controllers;
 
+import com.kindred.islab1.authentication.ImportStatus;
 import com.kindred.islab1.entities.Coordinates;
 import com.kindred.islab1.entities.Flat;
 import com.kindred.islab1.entities.House;
+import com.kindred.islab1.exceptions.ImportException;
 import com.kindred.islab1.services.FlatService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -46,14 +48,22 @@ public class FlatController {
     @PostMapping
     public ResponseEntity<Map<String, Object>> createFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Flat flat) {
         Map<String, Object> response = new HashMap<>();
+        System.out.println(flat);
 
         response.put("flat", flatService.createFlat(flat, userDetails.getUsername()));
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PostMapping("/import")
-    public ResponseEntity<Map<String, Object>> importFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestParam("file") MultipartFile flatFile) throws IOException {
-        return new ResponseEntity<>(flatService.importFlats(flatFile, userDetails.getUsername()), HttpStatus.CREATED);
+    public ResponseEntity<Map<String, Object>> importFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestParam("file") MultipartFile flatFile) {
+        try {
+            return new ResponseEntity<>(flatService.importFlats(flatFile, userDetails.getUsername()), HttpStatus.CREATED);
+        } catch (ImportException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ImportException(ex.getMessage(), ImportStatus.FAILED_DUE_TO_ERROR_IN_DATABASE, userDetails.getUsername(), HttpStatus.CONFLICT);
+        }
+
     }
 
 

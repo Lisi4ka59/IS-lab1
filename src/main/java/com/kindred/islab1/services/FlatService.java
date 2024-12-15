@@ -4,6 +4,7 @@ package com.kindred.islab1.services;
 import com.kindred.islab1.authentication.ImportStatus;
 import com.kindred.islab1.authentication.Roles;
 import com.kindred.islab1.entities.*;
+import com.kindred.islab1.exceptions.ImportException;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.*;
 import jakarta.transaction.Transactional;
@@ -110,7 +111,7 @@ public class FlatService {
             flat.setName(flatDetails.getName());
             flat.setArea(flatDetails.getArea());
             flat.setPrice(flatDetails.getPrice());
-            flat.setBalcony(flatDetails.isBalcony());
+            flat.setBalcony(flatDetails.getBalcony());
             flat.setTimeToMetroOnFoot(flatDetails.getTimeToMetroOnFoot());
             flat.setNumberOfRooms(flatDetails.getNumberOfRooms());
             flat.setIsNew(flatDetails.getIsNew());
@@ -168,7 +169,7 @@ public class FlatService {
 
     public Flat getMostExpensiveFlatWithoutBalcony() {
         return flatRepository.findAll().stream()
-                .filter(flat -> flat != null && Boolean.FALSE.equals(flat.isBalcony()))
+                .filter(flat -> flat != null && Boolean.FALSE.equals(flat.getBalcony()))
                 .max(Comparator.comparingDouble(flat -> Optional.of(flat.getPrice()).orElse(0.0)))
                 .orElseThrow(() -> new ResourceNotFoundException("No flats without a balcony found"));
     }
@@ -211,7 +212,7 @@ public class FlatService {
             importHistory.setCreatedCoordinates(coordinatesList.size());
         }
         if (sheetNames.contains("Flats")) {
-            List<Flat> flats = saveAllFlats(parseFlatsFromSheet(workbook.getSheet("Flats"), username));
+            List<Flat> flats = saveAllFlats(parseFlatsFromSheet(workbook.getSheet("Flats"), username), username);
             response.put("flats", flats);
             response.put("flatsImported", flats.size());
             importHistory.setCreatedFlats(flats.size());
@@ -223,22 +224,16 @@ public class FlatService {
         return response;
     }
 
-    public void createFailedImportHistory(String username, ImportStatus status) {
-        ImportHistory importHistory = new ImportHistory();
-        importHistory.setUsername(username);
-        importHistory.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")).getId());
-        importHistory.setStatus(status);
-    }
-
     @Transactional
-    public List<Flat> saveAllFlats(List<Flat> flats) {
+    public List<Flat> saveAllFlats(List<Flat> flats, String username) {
         List<Flat> savedFlats = new ArrayList<>();
         if (flats == null || flats.isEmpty()) {
-            throw new IllegalArgumentException("Flat list is empty or null");
+            throw new ImportException("Flat list is empty or null", ImportStatus.FAILED_DUE_TO_INCORRECT_DATA_IN_FILE, username, HttpStatus.BAD_REQUEST);
+
         }
         for (Flat flat : flats) {
             if (!validateFlat(flat)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid flat");
+                throw new ImportException("Flat validation failed!", ImportStatus.FAILED_DUE_TO_VALIDATION, username, HttpStatus.BAD_REQUEST);
             }
             savedFlats.add(flatRepository.save(flat));
         }
@@ -248,7 +243,7 @@ public class FlatService {
     @Transactional
     public List<House> saveAllHouse(List<House> house) {
         if (house == null || house.isEmpty()) {
-            throw new IllegalArgumentException("House list is empty or null");
+            return Collections.emptyList();
         }
         return houseRepository.saveAll(house);
     }
@@ -256,7 +251,7 @@ public class FlatService {
     @Transactional
     public List<Coordinates> saveAllCoordinates(List<Coordinates> coordinates) {
         if (coordinates == null || coordinates.isEmpty()) {
-            throw new IllegalArgumentException("Coordinates list is empty or null");
+            return Collections.emptyList();
         }
         return coordinatesRepository.saveAll(coordinates);
     }
@@ -266,7 +261,7 @@ public class FlatService {
         Iterator<Row> rowIterator = sheet.iterator();
 
         if (!rowIterator.hasNext()) {
-            throw new IllegalArgumentException("Flats sheet is empty");
+            throw new ImportException("Flats sheet is empty", ImportStatus.FAILED_DUE_TO_INCORRECT_DATA_IN_FILE, username, HttpStatus.BAD_REQUEST);
         }
 
         Row headerRow = rowIterator.next();
@@ -277,7 +272,7 @@ public class FlatService {
             try {
                 flats.add(parseFlatFromRow(row, headerMap, username));
             } catch (Exception e) {
-                System.err.println("Error parsing flat at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                throw new ImportException("Error parsing flat at row " + (row.getRowNum() + 1) + ": " + e.getMessage(), ImportStatus.FAILED_DUE_TO_INCORRECT_DATA_IN_FILE, username, HttpStatus.BAD_REQUEST);
             }
         }
         return flats;
@@ -312,7 +307,7 @@ public class FlatService {
         flat.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
 
         if (flat.getName() == null || flat.getArea() <= 0 || flat.getPrice() <= 0) {
-            throw new IllegalArgumentException("Invalid flat data");
+            throw new ImportException("Validation failed", ImportStatus.FAILED_DUE_TO_VALIDATION, username, HttpStatus.BAD_REQUEST);
         }
         return flat;
     }
@@ -322,17 +317,14 @@ public class FlatService {
 
         Iterator<Row> rowIterator = sheet.iterator();
         if (!rowIterator.hasNext()) {
-            throw new IllegalArgumentException("Sheet is empty");
+            return houses;
         }
-
-        // Получение заголовков
         Row headerRow = rowIterator.next();
         Map<String, Integer> headerMap = getHeaderMap(headerRow);
 
         while (rowIterator.hasNext()) {
             Row row = rowIterator.next();
             try {
-                // Создаем объект House из строки
                 House house = new House();
                 house.setName(getStringValue(row, headerMap.get("name")));
                 house.setYear(getIntValue(row, headerMap.get("year")));
@@ -340,8 +332,8 @@ public class FlatService {
                 house.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
                 houses.add(house);
             } catch (IllegalArgumentException | NullPointerException e) {
-                // Логирование ошибок
-                System.err.println("Error parsing house at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                throw new ImportException("Error parsing house at row " + (row.getRowNum() + 1) + ": " + e.getMessage(), ImportStatus.FAILED_DUE_TO_INCORRECT_DATA_IN_FILE, username, HttpStatus.BAD_REQUEST);
+
             }
         }
         return houses;
@@ -352,10 +344,8 @@ public class FlatService {
 
         Iterator<Row> rowIterator = sheet.iterator();
         if (!rowIterator.hasNext()) {
-            throw new IllegalArgumentException("Sheet is empty");
+            return coordinatesList;
         }
-
-        // Получение заголовков
         Row headerRow = rowIterator.next();
         Map<String, Integer> headerMap = getHeaderMap(headerRow);
 
@@ -363,15 +353,13 @@ public class FlatService {
             Row row = rowIterator.next();
 
             try {
-                // Создаем объект Coordinates из строки
                 Coordinates coordinates = new Coordinates();
                 coordinates.setX(getFloatValue(row, headerMap.get("x")));
                 coordinates.setY(getDoubleValue(row, headerMap.get("y")));
                 coordinates.setOwnerId(userRepository.findByUsername(username).orElseThrow().getId());
                 coordinatesList.add(coordinates);
             } catch (IllegalArgumentException | NullPointerException e) {
-                // Логирование ошибок
-                System.err.println("Error parsing coordinates at row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                throw new ImportException("Error parsing coordinates at row " + (row.getRowNum() + 1) + ": " + e.getMessage(), ImportStatus.FAILED_DUE_TO_INCORRECT_DATA_IN_FILE, username, HttpStatus.BAD_REQUEST);
             }
         }
 
