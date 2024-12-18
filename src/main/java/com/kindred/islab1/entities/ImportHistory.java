@@ -28,6 +28,8 @@ public class ImportHistory {
     @NotNull
     private long ownerId;
 
+    private String filePath;
+
     private LocalDateTime creationDate;
 
     @PrePersist

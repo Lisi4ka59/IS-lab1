@@ -7,6 +7,10 @@ import com.kindred.islab1.entities.*;
 import com.kindred.islab1.exceptions.ImportException;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.*;
+import io.minio.GetObjectArgs;
+import io.minio.PutObjectArgs;
+import io.minio.MinioClient;
+import io.minio.errors.*;
 import jakarta.transaction.Transactional;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -14,12 +18,19 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -27,8 +38,11 @@ public class FlatService {
 
     private final FlatRepository flatRepository;
 
+    private final MinioClient minioClient;
+
     @Autowired
-    public FlatService(FlatRepository flatRepository) {
+    public FlatService(FlatRepository flatRepository , MinioClient minioClient) {
+        this.minioClient = minioClient;
         this.flatRepository = flatRepository;
     }
 
@@ -53,6 +67,23 @@ public class FlatService {
 
     public List<ImportHistory> getAllImportHistory() {
         return importHistoryRepository.findAllByOrderByCreationDateDesc();
+    }
+
+    public byte[] getImportHistoryFile(String filePath) throws IOException, ServerException, InsufficientDataException, ErrorResponseException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+            // Fetch the file from MinIO
+            InputStream inputStream = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket("imports") // Use the bucket name
+                            .object(filePath) // File path (unique name)
+                            .build()
+            );
+
+            // Read the file content into a byte array
+            byte[] fileContent = inputStream.readAllBytes();
+
+            // Close the input stream
+            inputStream.close();
+            return fileContent;
     }
 
     public boolean validateFlat(Flat flat) {
@@ -190,38 +221,65 @@ public class FlatService {
 
     @Transactional
     public Map<String, Object> importFlats(MultipartFile flatFile, String username) throws IOException {
-        // Получаем список всех листов
         Map<String, Object> response = new HashMap<>();
-
         Workbook workbook = new XSSFWorkbook(flatFile.getInputStream());
         List<String> sheetNames = getSheetNames(workbook);
         ImportHistory importHistory = new ImportHistory();
 
-        // Вызываем соответствующие методы, если лист существует
         if (sheetNames.contains("Houses")) {
             List<House> houses = saveAllHouse(parseHousesFromSheet(workbook.getSheet("Houses"), username));
             response.put("houses", houses);
             response.put("housesImported", houses.size());
             importHistory.setCreatedHouses(houses.size());
-
         }
+
         if (sheetNames.contains("Coordinates")) {
             List<Coordinates> coordinatesList = saveAllCoordinates(parseCoordinatesFromSheet(workbook.getSheet("Coordinates"), username));
             response.put("coordinates", coordinatesList);
             response.put("coordinatesImported", coordinatesList.size());
             importHistory.setCreatedCoordinates(coordinatesList.size());
         }
+
         if (sheetNames.contains("Flats")) {
             List<Flat> flats = saveAllFlats(parseFlatsFromSheet(workbook.getSheet("Flats"), username), username);
             response.put("flats", flats);
             response.put("flatsImported", flats.size());
             importHistory.setCreatedFlats(flats.size());
         }
+
         importHistory.setUsername(username);
-        importHistory.setOwnerId(userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")).getId());
+        importHistory.setOwnerId(userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"))
+                .getId());
         importHistory.setStatus(ImportStatus.SUCCESS);
+
+        // Save file to MinIO and record file path in ImportHistory
+        String filePath = saveFileToMinio(flatFile);
+        importHistory.setFilePath(filePath);
+
         importHistoryRepository.save(importHistory);
         return response;
+    }
+
+    private String saveFileToMinio(MultipartFile file) {
+        try {
+            // Generate a unique file name with timestamp
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+            String filePath = timestamp + "_" + file.getOriginalFilename(); // Path within the 'imports' bucket
+
+            // Upload file to MinIO
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket("imports") // Use the 'imports' bucket
+                    .object(filePath)
+                    .stream(file.getInputStream(), file.getSize(), -1)
+                    .contentType(file.getContentType())
+                    .build());
+
+            System.out.println("File uploaded to MinIO: " + filePath);
+            return filePath; // Return the file path for storing in ImportHistory
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save file to MinIO", e);
+        }
     }
 
     @Transactional

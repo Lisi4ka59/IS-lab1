@@ -122,7 +122,12 @@
             <version>5.3.0</version>
         </dependency>
 
-
+        <!-- https://mvnrepository.com/artifact/io.minio/minio -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.14</version>
+        </dependency>
 
 
 

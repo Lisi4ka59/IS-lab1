@@ -6,7 +6,9 @@ import com.kindred.islab1.entities.Flat;
 import com.kindred.islab1.entities.House;
 import com.kindred.islab1.exceptions.ImportException;
 import com.kindred.islab1.services.FlatService;
+import io.minio.errors.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,6 +33,18 @@ public class FlatController {
     public FlatController(FlatService flatService) {
         this.flatService = flatService;
     }
+
+        @GetMapping("/download")
+        public ResponseEntity<byte[]> downloadFile(@RequestParam("filePath") String filePath) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
+            byte[] fileContent = flatService.getImportHistoryFile(filePath);
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filePath.split("/")[filePath.split("/").length - 1]);
+            headers.add(HttpHeaders.CONTENT_TYPE, "application/octet-stream");
+            return new ResponseEntity<>(fileContent, headers, HttpStatus.OK);
+        }
+
+
+
 
     @GetMapping("/import-history")
     public ResponseEntity<Map<String, Object>> getImportHistory(@AuthenticationPrincipal UserDetails user) {
@@ -55,10 +71,10 @@ public class FlatController {
     }
 
     @PostMapping("/import")
-    public ResponseEntity<Map<String, Object>> importFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestParam("file") MultipartFile flatFile) {
+    public ResponseEntity<Map<String, Object>> importFlat(@AuthenticationPrincipal UserDetails userDetails, @RequestParam("file") MultipartFile flatFile) throws IOException {
         try {
             return new ResponseEntity<>(flatService.importFlats(flatFile, userDetails.getUsername()), HttpStatus.CREATED);
-        } catch (ImportException ex) {
+        } catch (ImportException | IOException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new ImportException(ex.getMessage(), ImportStatus.FAILED_DUE_TO_ERROR_IN_DATABASE, userDetails.getUsername(), HttpStatus.CONFLICT);
