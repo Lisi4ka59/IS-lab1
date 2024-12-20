@@ -18,9 +18,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -41,7 +39,7 @@ public class FlatService {
     private final MinioClient minioClient;
 
     @Autowired
-    public FlatService(FlatRepository flatRepository , MinioClient minioClient) {
+    public FlatService(FlatRepository flatRepository, MinioClient minioClient) {
         this.minioClient = minioClient;
         this.flatRepository = flatRepository;
     }
@@ -70,20 +68,15 @@ public class FlatService {
     }
 
     public byte[] getImportHistoryFile(String filePath) throws IOException, ServerException, InsufficientDataException, ErrorResponseException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
-            // Fetch the file from MinIO
-            InputStream inputStream = minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket("imports") // Use the bucket name
-                            .object(filePath) // File path (unique name)
-                            .build()
-            );
-
-            // Read the file content into a byte array
-            byte[] fileContent = inputStream.readAllBytes();
-
-            // Close the input stream
-            inputStream.close();
-            return fileContent;
+        InputStream inputStream = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket("imports")
+                        .object(filePath)
+                        .build()
+        );
+        byte[] fileContent = inputStream.readAllBytes();
+        inputStream.close();
+        return fileContent;
     }
 
     public boolean validateFlat(Flat flat) {
@@ -253,7 +246,6 @@ public class FlatService {
                 .getId());
         importHistory.setStatus(ImportStatus.SUCCESS);
 
-        // Save file to MinIO and record file path in ImportHistory
         String filePath = saveFileToMinio(flatFile);
         importHistory.setFilePath(filePath);
 
@@ -261,22 +253,19 @@ public class FlatService {
         return response;
     }
 
+    // minio server ~/minio-data
     private String saveFileToMinio(MultipartFile file) {
         try {
-            // Generate a unique file name with timestamp
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-            String filePath = timestamp + "_" + file.getOriginalFilename(); // Path within the 'imports' bucket
+            String filePath = timestamp + "_" + file.getOriginalFilename();
 
-            // Upload file to MinIO
             minioClient.putObject(PutObjectArgs.builder()
-                    .bucket("imports") // Use the 'imports' bucket
+                    .bucket("imports")
                     .object(filePath)
                     .stream(file.getInputStream(), file.getSize(), -1)
                     .contentType(file.getContentType())
                     .build());
-
-            System.out.println("File uploaded to MinIO: " + filePath);
-            return filePath; // Return the file path for storing in ImportHistory
+            return filePath;
         } catch (Exception e) {
             throw new RuntimeException("Failed to save file to MinIO", e);
         }

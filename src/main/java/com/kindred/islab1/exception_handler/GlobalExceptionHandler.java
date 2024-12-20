@@ -5,6 +5,7 @@ import com.kindred.islab1.exceptions.ImportException;
 import com.kindred.islab1.exceptions.ResourceNotFoundException;
 import com.kindred.islab1.repositories.ImportHistoryRepository;
 import com.kindred.islab1.repositories.UserRepository;
+import io.minio.errors.ErrorResponseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +51,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, ex.httpStatus);
     }
 
+    @ExceptionHandler(ErrorResponseException.class)
+    public ResponseEntity<Map<String, String>> handleErrorResponseException(ErrorResponseException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+
+        errorResponse.put("error", ex.getMessage());
+        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
